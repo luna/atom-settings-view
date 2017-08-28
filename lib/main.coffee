@@ -1,10 +1,5 @@
 SettingsView = null
-settingsView = null
-
-statusView = null
-
 PackageManager = require './package-manager'
-packageManager = null
 
 SnippetsProvider =
   getSnippets: -> atom.config.scopedSettingsStore.propertySets
@@ -29,13 +24,13 @@ module.exports =
   activate: ->
     atom.workspace.addOpener (uri) =>
       if uri.startsWith(configUri)
-        if not settingsView? or settingsView.destroyed
-          settingsView = @createSettingsView({uri})
+        if not @settingsView? or @settingsView.destroyed
+          @settingsView = @createSettingsView({uri})
         if match = uriRegex.exec(uri)
           panelName = match[1]
           panelName = panelName[0].toUpperCase() + panelName.slice(1)
-          openPanel(settingsView, panelName, uri)
-        settingsView
+          openPanel(@settingsView, panelName, uri)
+        @settingsView
 
     atom.commands.add 'atom-workspace',
       'settings-view:open': -> atom.workspace.open(configUri)
@@ -54,35 +49,38 @@ module.exports =
       atom.commands.add 'atom-workspace', 'settings-view:system': -> atom.workspace.open("#{configUri}/system")
 
     unless localStorage.getItem('hasSeenDeprecatedNotification')
-      packageManager ?= new PackageManager()
-      packageManager.getInstalled().then (packages) =>
+      @packageManager ?= new PackageManager()
+      @packageManager.getInstalled().then (packages) =>
         @showDeprecatedNotification(packages) if packages.user?.length
 
   deactivate: ->
-    settingsView?.destroy()
-    statusView?.destroy()
-    settingsView = null
-    packageManager = null
-    statusView = null
+    @settingsView?.destroy()
+    @statusView?.destroy()
+    @settingsView = null
+    @packageManager = null
+    @statusView = null
 
   consumeStatusBar: (statusBar) ->
-    packageManager ?= new PackageManager()
-    packageManager.getOutdated().then (updates) ->
-      if packageManager?
+    @packageManager ?= new PackageManager()
+    @packageManager.getOutdated().then (updates) ->
+      if @packageManager?
         PackageUpdatesStatusView = require './package-updates-status-view'
-        statusView = new PackageUpdatesStatusView()
-        statusView.initialize(statusBar, packageManager, updates)
+        @statusView = new PackageUpdatesStatusView()
+        @statusView.initialize(statusBar, @packageManager, updates)
 
   consumeSnippets: (snippets) ->
     if typeof snippets.getUnparsedSnippets is "function"
       SnippetsProvider.getSnippets = snippets.getUnparsedSnippets.bind(snippets)
 
   createSettingsView: (params) ->
-    SettingsView ?= require './settings-view'
-    packageManager ?= new PackageManager()
-    params.packageManager = packageManager
+    @packageManager ?= new PackageManager()
+    params.packageManager = @packageManager
     params.snippetsProvider = SnippetsProvider
-    settingsView = new SettingsView(params)
+    @settingsView = @newSettingsView params
+
+  newSettingsView: (params) ->
+    SettingsView ?= require './settings-view'
+    new SettingsView(params)
 
   showDeprecatedNotification: (packages) ->
     localStorage.setItem('hasSeenDeprecatedNotification', true)
